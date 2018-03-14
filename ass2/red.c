@@ -1,0 +1,237 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include<ctype.h>
+#include<string.h>
+#include "stack.h"
+
+void copy(int a[],int a1[])
+{
+	int i;
+	for(i=0;a1[i]!=-1;i++)
+	{
+		a[i]=a1[i];
+	}
+}
+
+void Union(int a[],int a1[],int a2[])
+{
+	int i,j,k;
+	for(i=0;a1[i]!=-1;i++)
+	{
+		a[i]=a1[i];
+	}
+	for(k=0;a2[k]!=-1;k++)
+	{
+		for(j=0;a1[j]!=-1;j++)
+		{
+			if(a1[j]==a2[k])
+			{
+				break;
+			}
+		}
+		if(a1[j]==-1)
+		{
+			a[i]=a2[k];
+			i++;
+		}
+	}
+}
+
+node *getnode(char a)
+{
+	int i;	
+	node *newnode;
+	newnode=(node *)malloc(sizeof(node));
+	newnode->data=a;
+	newnode->nullable=0;
+	newnode->position=-1;
+	newnode->left=NULL;
+	newnode->right=NULL;
+	for(i=0;i<10;i++)
+	{
+		newnode->firstpos[i]=-1;
+		newnode->lastpos[i]=-1;
+	}
+	return newnode;
+}
+
+node *create(char postfix[50])
+{
+	node *root=NULL;
+	node *newnode;
+	int i;
+	int pos=1;
+	
+	for(i=0;postfix[i]!='\0';i++)
+	{
+		newnode=getnode(postfix[i]);
+		if(isalpha(postfix[i]) || postfix[i]=='#')
+		{
+			newnode->nullable=0;
+			newnode->firstpos[0]=pos;
+			newnode->lastpos[0]=pos;
+			newnode->position=pos;
+			push(newnode);	
+			pos++;
+		}
+		else
+		{
+			if(postfix[i]=='^')
+			{
+				newnode->nullable=1;
+				push(newnode);
+			}
+			else if(postfix[i]=='|' || postfix[i]=='+')
+			{
+				if(isempty())
+				{
+					printf("\nINVALID TREE\n");
+					exit(0);
+				}
+				newnode->right=pop();
+				if(isempty())
+				{
+					printf("\nINVALID TREE\n");
+					exit(0);
+				}
+				newnode->left=pop();
+				
+				newnode->nullable = (newnode->left->nullable) || (newnode->right->nullable);
+				Union(newnode->firstpos,newnode->left->firstpos,newnode->right->firstpos);
+				Union(newnode->lastpos,newnode->left->lastpos,newnode->right->lastpos);
+			}
+			else if(postfix[i]=='*')
+			{
+				if(isempty())
+				{
+					printf("\nINVALID TREE\n");
+					exit(0);
+				}
+				newnode->left=pop();
+				
+				newnode->nullable = 1;
+				copy(newnode->firstpos,newnode->left->firstpos);
+				copy(newnode->lastpos,newnode->left->lastpos);
+			}
+			else if(postfix[i]=='.')
+			{
+				if(isempty())
+				{
+					printf("\nINVALID TREE\n");
+					exit(0);
+				}
+				newnode->right=pop();
+				if(isempty())
+				{
+					printf("\nINVALID TREE\n");
+					exit(0);
+				}
+				newnode->left=pop();
+
+				newnode->nullable = (newnode->left->nullable) && (newnode->right->nullable);
+				if(newnode->left->nullable)
+				{
+					Union(newnode->firstpos,newnode->left->firstpos,newnode->right->firstpos);
+				}
+				else
+				{
+					copy(newnode->firstpos,newnode->left->firstpos);
+				}
+				if(newnode->right->nullable)
+				{
+					Union(newnode->lastpos,newnode->left->lastpos,newnode->right->lastpos);
+				}
+				else
+				{
+					copy(newnode->lastpos,newnode->right->lastpos);
+				}
+			}
+			push(newnode);
+		}
+	}
+	root=pop();
+	return root;		
+}
+
+void postorder(node *temp)
+{
+	int i;
+	if(temp)
+	{
+		postorder(temp->left);
+		postorder(temp->right);
+		printf("%c\t%d\t\t%d\t\t{",temp->data,temp->position,temp->nullable);
+		for(i=0;temp->firstpos[i]!=-1;i++)
+		{
+			printf("%d,",temp->firstpos[i]);
+		}
+		printf("}\t\t{");
+		for(i=0;temp->lastpos[i]!=-1;i++)
+		{
+			printf("%d,",temp->lastpos[i]);
+		}
+		printf("}\t");
+		printf("\n");
+	}
+
+}
+
+void followpos(node *temp,int fp[20][20])
+{
+	int i;
+	if(temp)
+	{
+		if(temp->data=='.')
+		{
+			for(i=0;temp->left->lastpos[i]!=-1;i++)
+				Union(fp[temp->left->lastpos[i]],fp[temp->left->lastpos[i]],temp->right->firstpos);
+
+		}
+		if(temp->data=='*')
+		{
+			for(i=0;temp->lastpos[i]!=-1;i++)
+				Union(fp[temp->lastpos[i]],fp[temp->lastpos[i]],temp->firstpos);
+
+		}
+		followpos(temp->left,fp);
+		followpos(temp->right,fp);
+	}
+}
+
+int main()
+{
+	char postfix[50];
+	int cnt,fp[20][20],i,j;
+	node *root = NULL;
+	top = (stack *)malloc(sizeof(stack));
+	printf("Enter the postfix Expression:\n");
+	scanf("%s",postfix);
+	strcat(postfix,"#.");
+	printf("\nEntered Expression:%s",postfix);
+	root=create(postfix);
+	
+	printf("Data\tposition\tnullable\tfirstpos\tlastpos\t\n");
+	postorder(root);
+	
+	for(i=0;i<20;i++)
+	{
+		for(j=0;j<20;j++)
+		{
+			fp[i][j]=-1;
+		}
+	}
+		
+	cnt=root->right->position;
+	followpos(root,fp);
+	printf("\n\nFOLLOWPOS:\n\n");
+	for(i=1;i<=cnt;i++)
+	{
+		printf("%d-->",i);	
+		for(j=0;fp[i][j]!=-1;j++)
+		{
+			printf("%d",fp[i][j]);
+		}
+		printf("\n");
+	}
+	return 0;
+}

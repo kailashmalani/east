@@ -1,0 +1,7 @@
+DIGIT [0-9]
+%%
+{DIGIT} 	{yylval=atoi(yytext); return NUM;}
+[ \t]		;
+\n		yyterminate();
+.		return yytext[0];
+%%
